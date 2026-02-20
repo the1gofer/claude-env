@@ -12,7 +12,7 @@ Claude Code environment for the gofer-stack homelab. Skills, agents, and memory 
 
 ```bash
 cd ~/Documents/GitHub
-git clone git@github.com:YOUR_USERNAME/claude-env.git
+git clone git@github.com:the1gofer/claude-env.git
 bash claude-env/setup.sh
 ```
 
@@ -20,7 +20,7 @@ bash claude-env/setup.sh
 
 ```bash
 cd ~
-git clone git@github.com:YOUR_USERNAME/claude-env.git
+git clone git@github.com:the1gofer/claude-env.git
 bash claude-env/setup.sh
 ```
 
