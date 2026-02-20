@@ -1,0 +1,16 @@
+# Never commit secrets
+*.env
+.env.*
+secrets/
+*_password*
+*_token*
+*_key.txt
+
+# macOS
+.DS_Store
+**/.DS_Store
+
+# Editor
+.vscode/
+*.swp
+*.swo
