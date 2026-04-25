@@ -65,3 +65,4 @@ ssh root@192.168.39.100 "pct status <id>"
 If connection is refused, verify keys have been deployed: run the `setup-ssh-keys-on-servers.sh` script from the gofer-stack repo.
 
 **If the host name isn't recognized:** List the valid host names from the table and ask which the user meant.
+# test
