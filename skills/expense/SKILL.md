@@ -168,6 +168,7 @@ Then ask the user for accounting fields using AskUserQuestion. Always ask:
 
 7. **Mailing date** — date the check was mailed (suggest today's date)
 8. **Tracking number** — USPS or other carrier tracking number (optional, leave blank if not available)
+9. **Postage** — stamp + envelope cost for mailing the check. Default is $1.13 ($0.78 stamp + $0.35 envelope). Confirm amount or adjust if different. This will generate a separate postage expense note paid personally by the member who mailed it.
 
 If Category is Capital, also determine:
 7. **Depreciation life** — see Depreciation Reference below
@@ -284,7 +285,48 @@ Only proceed to write the file once the user explicitly confirms.
 
 Before writing, check if a file with the same name already exists. If so, warn and ask the user.
 
-**Receipt wikilink:** Build the receipt filename from Paperless metadata using the storage path pattern: `{created_date} - {correspondent_name} - {title}.pdf`. This matches the Paperless "Rental Receipts" storage path template. The actual receipt files live in `/Users/jasoncrews/Documents/Unified/R01 - Rentals/1 - 5450 E McLellan Rd Unit 227, LLC/Receipts/{YYYY}/`. Format as `[[receipt_filename]]`.
+**Receipt wikilink — build and verify:**
+
+1. Construct the candidate filename: `{created_date} - {correspondent_name} - {title}.pdf`
+   - The separator between every segment is ` - ` (space-dash-space) — never a plain space
+   - Correct: `2026-04-15 - USPS - 2026-04-15 - USPS Change-of-Address Fee - Jason.pdf`
+   - Broken: `2026-04-15 USPS 2026-04-15 - USPS Change-of-Address Fee - Jason.pdf`
+
+2. **Verify the file exists** in the vault before using it:
+   ```bash
+   ls "/Users/jasoncrews/Documents/Unified/R01 - Rentals/1 - 5450 E McLellan Rd Unit 227, LLC/Receipts/{YYYY}/" | grep -F "{candidate_filename}"
+   ```
+   If not found, search more broadly:
+   ```bash
+   find "/Users/jasoncrews/Documents/Unified/R01 - Rentals/1 - 5450 E McLellan Rd Unit 227, LLC/Receipts" -name "*{partial_title}*"
+   ```
+   Use the **actual filename returned** by the search — not the constructed candidate. Set `receipt: ""` if the file cannot be found (do not invent a link).
+
+3. Format the wikilink: `[[{actual_filename}]]` (no path needed — Obsidian resolves by filename across the vault)
+
+**Paperless URLs in expense notes:** Only the `tracking_paperless:` frontmatter field and the `**Tracking:**` body line should reference Paperless URLs. The `receipt:` field must always be an Obsidian wikilink or empty — never `http://...`.
+
+**Important:** HOA payment coupons and bills used as receipts for check payments must be filed in Paperless under **Receipts path (ID 4)**, not Bills (14), so they sync to the Obsidian Receipts folder and the wikilink resolves. Update the Paperless storage path via PATCH if needed.
+
+## Naming Conventions
+
+### HOA Payment Notes
+
+Monthly AMRV HOA: `{YYYY-MM-DD} - Alta Mesa Resort Village HOA - {YYYY-MM}.md`
+- `{YYYY-MM-DD}` = transaction date (when check was mailed or online payment made)
+- `{YYYY-MM}` = billing period covered (e.g., `2026-05` for May 2026 assessment)
+- Internal `description:` and H1 heading must match: `"Alta Mesa Resort Village HOA - {YYYY-MM}"`
+
+Quarterly Alta Mesa HOA: `{YYYY-MM-DD} - Alta Mesa HOA - {period}.md`
+- `{period}` = quarter(s) covered (e.g., `2026-Q1-Q2` for Q1+Q2 paid together)
+
+### Postage Notes (Mailed Check Payments)
+
+`{YYYY-MM-DD} - Postage - {HOA Name} Payment - {period}.md`
+- `{YYYY-MM-DD}` = date the check was mailed
+- `{HOA Name}` = same HOA name used in the main payment note
+- `{period}` = billing period the mailed check covers (same as the main HOA payment note)
+- Internal `description:` and H1 must match the filename stem: `"Postage - {HOA Name} Payment - {period}"`
 
 **File format:**
 
@@ -300,11 +342,13 @@ paid_by: {paidBy}
 tags: [{tag_list}]
 postings:
 {postings_yaml}
-receipt: "[[{receipt_filename}]]"
+receipt: "[[{created_date} - {correspondent_name} - {title}.pdf]]"
 {depreciation_life_line_if_capital}
 baselane: {true_or_false}
 llc: "{llc_wikilink}"
 {if IS_CHECK}check_number: "{check_number}"
+tracking: "{tracking_number_or_blank}"
+tracking_paperless: "{paperless_url_or_blank}"
 {/if IS_CHECK}---
 
 # {description}
@@ -316,11 +360,12 @@ llc: "{llc_wikilink}"
 - **Date:** {YYYY-MM-DD}
 {if cleared_date}- **Cleared:** {cleared_date}
 {/if cleared_date}- **Project:** {project_display}
-- **Receipt:** [[{receipt_filename}]]
+- **Receipt:** [[{created_date} - {correspondent_name} - {title}.pdf]]
 {if IS_CHECK}- **Check #:** {check_number}
 - **Mailed:** {mailing_date}
-{if tracking_number}- **Tracking:** {tracking_number}
-{/if tracking_number}{/if IS_CHECK}
+{if tracking_number}- **Tracking:** [{tracking_number}]({paperless_tracking_url})
+{/if tracking_number}{if no tracking_number}- **Tracking:** *(to be added — file USPS tracking in Paperless and add URL here)*
+{/if no tracking_number}{/if IS_CHECK}
 
 ## Accounting Postings
 | Account | Amount | Note |
@@ -342,6 +387,64 @@ llc: "{llc_wikilink}"
 depreciation_life: {5|15|27.5}
 de_minimis: {true|false}
 ```
+
+---
+
+### Step 6a: Write Postage Expense Note (Mailed checks only)
+
+**Only execute this step if `IS_CHECK = true`.**
+
+After writing the main expense file, automatically create a companion postage expense note. Do not ask — this is always required for mailed check payments.
+
+**Postage amount:** $1.13 by default ($0.78 stamp + $0.35 envelope). Use confirmed amount from Step 3 if different.
+
+**Who paid:** The member who mailed the check (same as `paid_by` for the main note, or whichever member handled the mailing — ask if unclear).
+
+**Filename:** `{YYYY-MM-DD} - Postage - {Payee} Payment - {period}.md`
+- `{period}` = billing period the mailed check covers (e.g., `2026-05` for monthly HOA, `2026-Q1-Q2` for quarterly)
+
+```
+---
+type: transaction
+date: {YYYY-MM-DD}
+description: "Postage - {Payee} Payment - {period}"
+total_amount: {postage_amount}
+paid_by: {paidBy}
+tags:
+  - office
+  - member-contribution
+postings:
+  - account: Expenses:Property:5450:Operating:Office
+    amount: {postage_amount}
+    note: Stamp ($0.78) + envelope ($0.35) for {Payee} payment (check #{check_number})
+  - account: Liabilities:Members:{paidBy}:Owed:Supplies
+    amount: -{postage_amount}
+    note: {paidBy} paid personally
+receipt: ""
+llc: "[[07 - Entity - 5450 E McLellan Rd Unit 227, LLC|5450 E McLellan Rd Unit 227, LLC]]"
+baselane: false
+---
+
+# Postage - {Payee} Payment - {period}
+
+## Transaction Summary
+- **Description:** Stamp + envelope for {Payee} payment (check #{check_number})
+- **Amount:** ${postage_amount} ($0.78 stamp + $0.35 envelope)
+- **Date:** {YYYY-MM-DD}
+- **Paid By:** {paidBy} (personal funds, non-cash reimbursement)
+
+## Accounting Postings
+| Account | Amount | Note |
+| :--- | :--- | :--- |
+| `Expenses:Property:5450:Operating:Office` | **${postage_amount}** | Stamp + envelope for {Payee} payment |
+| `Liabilities:Members:{paidBy}:Owed:Supplies` | -${postage_amount} | {paidBy} paid personally |
+
+## Related
+- [[{main_expense_filename_without_extension}]]
+- [[R01 - Rentals/Expenses/_Expense Dashboard|Expense Dashboard]]
+```
+
+**After filing the USPS tracking document** in Paperless, update the `receipt:` field in this postage note with the wikilink to the tracking PDF: `[[{tracking_doc_filename}.pdf]]`. The Paperless URL goes in the main HOA payment note's `tracking_paperless:` field only.
 
 ---
 
