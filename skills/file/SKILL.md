@@ -1,6 +1,6 @@
 ---
 name: file
-description: File a document (statement, notice, letter, insurance doc, etc.) into Paperless-NGX with correct metadata. No expense note is created — this skill is for archiving documents only. Accepts a local file path or Paperless document ID/URL.
+description: File a document (statement, notice, letter, insurance doc, etc.) into Paperless-NGX with correct metadata. Accepts a local file path or Paperless document ID/URL. If the document is a Receipt (type 2), automatically continues into the expense skill to create the Obsidian transaction note.
 ---
 
 File a document into Paperless-NGX with correct metadata for the LLC rental property.
@@ -193,7 +193,19 @@ Report success:
 - **Wikilink:** [[{MM} - {Correspondent} - {Title}.pdf]]
 ```
 
-The Paperless URL can be added to Obsidian expense note `receipt:` fields. The wikilink format works in Obsidian note bodies.
+---
+
+### Step 7: Auto-trigger Expense Skill (Receipts only)
+
+**If the document type is Receipt (ID 2)**, immediately continue into the `expense` skill without asking. Pass the Paperless document URL as the argument:
+
+```
+Paperless URL: http://192.168.39.25:8000/documents/{doc_id}/
+```
+
+Do not pause or prompt the user — the filing report above is sufficient context. The expense skill will read the document metadata, present extracted data, and ask only the accounting questions it needs (who paid, payment flow, etc.).
+
+**Skip this step** for all other document types (statements, invoices, bills, tracking records, notices, etc.).
 
 ---
 
